@@ -20,10 +20,10 @@ def get_main_menu():
     buttons = [
         [InlineKeyboardButton(text='🔓 Mở khóa tài khoản', callback_data='unlockinsta')],
         [
-            InlineKeyboardButton(text='📢 Kênh thông tin', url='https://t.me/ndmmo'),
-            InlineKeyboardButton(text='💻 Lập trình viên', url='https://t.me/zlzflf')
+            InlineKeyboardButton(text='📢 Kênh thông tin', url='https://t.me/grouptmq'),
+            InlineKeyboardButton(text='💻 Lập trình viên', url='https://t.me/tranquan46')
         ],
-        [InlineKeyboardButton(text='📜 Hướng dẫn sử dụng', url='https://t.me/ndmmo')]
+        [InlineKeyboardButton(text='📜 Hướng dẫn sử dụng', url='https://t.me/grouptmq/494')]
     ]
     return InlineKeyboardMarkup(buttons)
 
