@@ -1,22 +1,24 @@
 import asyncio
 import logging
-import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import aiohttp  # Use aiohttp for asynchronous requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Chat
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-from colorama import init, Fore
+from telegram.constants import ChatType
 
-init(autoreset=True)
 
-TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"  # Thay thế bằng token cố định của b
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"  # Replace with your bot token
+ALLOWED_GROUP_ID = -1002054319393 # Replace with your group's ID (must be negative)
 
 WELCOME_MESSAGE = """⥃ Chào mừng bạn đến với bot mở khóa tài khoản Instagram ♯
 ⥃ Bot hỗ trợ dịch vụ mở khóa VIP ✰
 ⥃ Xử lý yêu cầu nhanh chóng ⥉
 ID của bạn ⥃ {user_id}.👤"""
 
-def get_main_menu():
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def get_main_menu(include_stop=False):
     buttons = [
         [InlineKeyboardButton(text='🔓 Mở khóa tài khoản', callback_data='unlockinsta')],
         [
@@ -25,35 +27,57 @@ def get_main_menu():
         ],
         [InlineKeyboardButton(text='📜 Hướng dẫn sử dụng', url='https://t.me/grouptmq/494')]
     ]
+    if include_stop:
+        buttons.append([InlineKeyboardButton(text='🛑 Dừng', callback_data='stop')])
     return InlineKeyboardMarkup(buttons)
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles the /start command."""
+    if update.message.chat.type == ChatType.PRIVATE:
+          await update.message.reply_text("Bot này chỉ hoạt động trong nhóm chat.")
+    elif update.message.chat.type == ChatType.GROUP or update.message.chat.type == ChatType.SUPERGROUP:
+        user_id = update.message.chat_id  # Lấy ID của người dùng từ tin nhắn
+        message = WELCOME_MESSAGE.format(user_id=user_id)
+        await update.message.reply_text(message, reply_markup=get_main_menu())
+    else:
+        await update.message.reply_text("Bot này không hỗ trợ loại nhóm này.")
 async def unlockinsta(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.chat_id  # Lấy ID của người dùng từ tin nhắn
-    message = WELCOME_MESSAGE.format(user_id=user_id)
-    await update.message.reply_text(message, reply_markup=get_main_menu())
-
-async def start_unlock(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Starts the unlock process."""
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("• Gửi tên tài khoản:")
+
+    # Check if the command is used in the allowed group
+    if query.message.chat.id != ALLOWED_GROUP_ID:
+        await query.message.reply_text("Bot này chỉ hoạt động trong nhóm chat đã được chỉ định.")
+        return
+
+    # Check if already in progress
+    if "step" in context.user_data:
+        await query.message.reply_text("Bạn đã có một yêu cầu đang xử lý. Vui lòng hoàn thành hoặc dừng yêu cầu đó trước.")
+        return
+
+    await query.message.reply_text("• Gửi tên tài khoản:", reply_markup=get_main_menu(include_stop=True))  # Add Stop button
     context.user_data["step"] = "enter_full_name"
-    context.user_data["user_id"] = query.from_user.id  # Lấy và lưu ID của người dùng
+    context.user_data["user_id"] = query.from_user.id  # Store user ID for later checks
 
 async def enter_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Gets the full name from the user."""
     context.user_data["full_name"] = update.message.text
-    await update.message.reply_text("• Gửi tên người dùng:")
+    await update.message.reply_text("• Gửi tên người dùng:", reply_markup=get_main_menu(include_stop=True))
     context.user_data["step"] = "enter_username"
 
 async def enter_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Gets the username from the user."""
     context.user_data["username"] = update.message.text
-    await update.message.reply_text("• Gửi email tài khoản:")
+    await update.message.reply_text("• Gửi email tài khoản:", reply_markup=get_main_menu(include_stop=True))
     context.user_data["step"] = "enter_email"
 
 async def enter_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Gets the email from the user and sends the unlock request."""
     context.user_data["email"] = update.message.text
-    await update.message.reply_text("⏳ Đang gửi yêu cầu mở khóa...")
+    await update.message.reply_text("⏳ Đang gửi yêu cầu mở khóa...", reply_markup=get_main_menu())
 
-    # Phần gửi yêu cầu đến Facebook (giữ nguyên như trước)
+    # --- Asynchronous Request with aiohttp ---
     url = "https://www.facebook.com/ajax/help/contact/submit/page"
     headers = {
         'accept': "*/*",
@@ -98,18 +122,25 @@ async def enter_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     try:
-        response = requests.post(url, headers=headers, data=data)
-        if response.status_code == 200:
-            await update.message.reply_text("✅ Yêu cầu mở khóa đã được gửi thành công. Vui lòng kiểm tra email trong thời gian tới.")
-        else:
-            await update.message.reply_text("❌ Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại sau.")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=data) as response:
+                if response.status == 200:
+                    await update.message.reply_text("✅ Yêu cầu mở khóa đã được gửi thành công. Vui lòng kiểm tra email trong thời gian tới.")
+                else:
+                    await update.message.reply_text(f"❌ Có lỗi xảy ra khi gửi yêu cầu.  Mã trạng thái: {response.status}")
     except Exception as e:
-        await update.message.reply_text(f"⚠️ Lỗi xảy ra: {str(e)}")
+        await update.message.reply_text(f"⚠️ Lỗi xảy ra: {e}")
+    finally:
+        # Clear user data after processing
+        context.user_data.clear()
+
+
 
 async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Kiểm tra ID người dùng
-    if context.user_data.get("user_id") != update.message.from_user.id:
-        return  # Bỏ qua nếu không phải người dùng đã bắt đầu
+    """Processes incoming messages during the unlock flow."""
+    # Check if the message is from the correct user and in the correct chat
+    if context.user_data.get("user_id") != update.message.from_user.id or update.message.chat.id != ALLOWED_GROUP_ID:
+        return  # Ignore if not the correct user or chat
 
     step = context.user_data.get("step", "")
     if step == "enter_full_name":
@@ -118,15 +149,37 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await enter_username(update, context)
     elif step == "enter_email":
         await enter_email(update, context)
+    else:
+        # If no step is defined, but user sends a message, prompt them to start
+        await update.message.reply_text("Vui lòng sử dụng lệnh /unlockinsta để bắt đầu.", reply_markup=get_main_menu())
+
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancels the unlock process and clears user data."""
+    query = update.callback_query
+    await query.answer()
+
+    # Clear user data
+    context.user_data.clear()
+    await query.message.edit_text("Đã dừng quy trình mở khóa.  Bạn có thể bắt đầu lại bằng /unlockinsta.", reply_markup=get_main_menu())
 
 def run_bot():
+    """Starts the bot."""
     app = Application.builder().token(TOKEN).build()
+
+    # Command handlers
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("unlockinsta", unlockinsta))
+
+
+    # Callback query handlers
     app.add_handler(CallbackQueryHandler(start_unlock, pattern="^unlockinsta$"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_message))
+    app.add_handler(CallbackQueryHandler(stop, pattern="^stop$"))
 
-    print(Fore.GREEN + "✅ Bot đang chạy...")
+    # Message handler (only in allowed group)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.Chat(chat_id=ALLOWED_GROUP_ID), process_message))
+
+
+    logger.info("Bot is running...")
     app.run_polling()
-
 if __name__ == "__main__":
     run_bot()
