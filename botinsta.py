@@ -1,13 +1,12 @@
 import asyncio
 import logging
-import aiohttp  # Use aiohttp for asynchronous requests
+import aiohttp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Chat
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from telegram.constants import ChatType
 
-
 TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"  # Replace with your bot token
-ALLOWED_GROUP_ID = -1002054319393 # Replace with your group's ID (must be negative)
+ALLOWED_GROUP_ID = -1002370805497  # Replace with your group's ID (must be negative)
 
 WELCOME_MESSAGE = """⥃ Chào mừng bạn đến với bot mở khóa tài khoản Instagram ♯
 ⥃ Bot hỗ trợ dịch vụ mở khóa VIP ✰
@@ -31,34 +30,29 @@ def get_main_menu(include_stop=False):
         buttons.append([InlineKeyboardButton(text='🛑 Dừng', callback_data='stop')])
     return InlineKeyboardMarkup(buttons)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the /start command."""
+async def unlockinsta(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles the /unlockinsta command."""
     if update.message.chat.type == ChatType.PRIVATE:
           await update.message.reply_text("Bot này chỉ hoạt động trong nhóm chat.")
     elif update.message.chat.type == ChatType.GROUP or update.message.chat.type == ChatType.SUPERGROUP:
-        user_id = update.message.chat_id  # Lấy ID của người dùng từ tin nhắn
-        message = WELCOME_MESSAGE.format(user_id=user_id)
-        await update.message.reply_text(message, reply_markup=get_main_menu())
+          if update.message.chat.id != ALLOWED_GROUP_ID:
+            await update.message.reply_text("Bot này chỉ hoạt động trong nhóm chat đã được chỉ định.")
+            return
+
+          # Check if already in progress
+          if "step" in context.user_data:
+              await update.message.reply_text("Bạn đã có một yêu cầu đang xử lý. Vui lòng hoàn thành hoặc dừng yêu cầu đó trước.")
+              return
+
+          user_id = update.message.chat_id  # Lấy ID của người dùng từ tin nhắn
+          message = WELCOME_MESSAGE.format(user_id=user_id)
+          await update.message.reply_text(message, reply_markup=get_main_menu(include_stop=True))
+          context.user_data["step"] = "enter_full_name"
+          context.user_data["user_id"] = update.message.from_user.id  # Store user ID for later checks
+
     else:
         await update.message.reply_text("Bot này không hỗ trợ loại nhóm này.")
-async def unlockinsta(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Starts the unlock process."""
-    query = update.callback_query
-    await query.answer()
 
-    # Check if the command is used in the allowed group
-    if query.message.chat.id != ALLOWED_GROUP_ID:
-        await query.message.reply_text("Bot này chỉ hoạt động trong nhóm chat đã được chỉ định.")
-        return
-
-    # Check if already in progress
-    if "step" in context.user_data:
-        await query.message.reply_text("Bạn đã có một yêu cầu đang xử lý. Vui lòng hoàn thành hoặc dừng yêu cầu đó trước.")
-        return
-
-    await query.message.reply_text("• Gửi tên tài khoản:", reply_markup=get_main_menu(include_stop=True))  # Add Stop button
-    context.user_data["step"] = "enter_full_name"
-    context.user_data["user_id"] = query.from_user.id  # Store user ID for later checks
 
 async def enter_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Gets the full name from the user."""
@@ -167,12 +161,12 @@ def run_bot():
     app = Application.builder().token(TOKEN).build()
 
     # Command handlers
-    app.add_handler(CommandHandler("start", start))
+    # Removed the /start command, only /unlockinsta is used
     app.add_handler(CommandHandler("unlockinsta", unlockinsta))
 
 
     # Callback query handlers
-    app.add_handler(CallbackQueryHandler(start_unlock, pattern="^unlockinsta$"))
+    app.add_handler(CallbackQueryHandler(unlockinsta, pattern="^unlockinsta$"))  # Still needed for button press
     app.add_handler(CallbackQueryHandler(stop, pattern="^stop$"))
 
     # Message handler (only in allowed group)
