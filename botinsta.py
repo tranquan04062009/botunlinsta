@@ -1,179 +1,141 @@
-import asyncio
-import logging
-import aiohttp
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Chat
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-from telegram.constants import ChatType
+# CRE: TRANHAI AND SEA
+import requests
+import concurrent.futures
+import time
+import secrets  # Thư viện để tạo chuỗi ngẫu nhiên an toàn
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from datetime import datetime, timedelta
 
-TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"  # Replace with your bot token
-ALLOWED_GROUP_ID = -1002370805497  # Replace with your group's ID (must be negative)
+# Thông tin token bot Telegram (thay bằng token của bạn)
+TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"
 
-WELCOME_MESSAGE = """⥃ Chào mừng bạn đến với bot mở khóa tài khoản Instagram ♯
-⥃ Bot hỗ trợ dịch vụ mở khóa VIP ✰
-⥃ Xử lý yêu cầu nhanh chóng ⥉
-ID của bạn ⥃ {user_id}.👤"""
+# Dictionary để lưu key và thông tin người dùng
+user_keys = {}  # {user_id: {'key': key, 'expiration': expiration_date, 'verified': bool}}
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Hàm tạo key và URL với chuỗi ngẫu nhiên
+def generate_key_and_url(user_id):
+    ngay = int(datetime.now().day)
+    base_key = str(ngay * 27 + 27)
+    random_str = secrets.token_hex(4)  # Tạo chuỗi ngẫu nhiên 8 ký tự (hex)
+    key = f'TMQ{base_key}-{user_id}-{random_str}'  # Key dạng TMQ54-123456789-abcd1234
+    expiration_date = datetime.now().replace(hour=23, minute=59, second=0, microsecond=0)
+    url = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
+    return url, key, expiration_date
 
-
-def get_main_menu(include_stop=False):
-    buttons = [
-        [InlineKeyboardButton(text='🔓 Mở khóa tài khoản', callback_data='unlockinsta')],
-        [
-            InlineKeyboardButton(text='📢 Kênh thông tin', url='https://t.me/grouptmq'),
-            InlineKeyboardButton(text='💻 Lập trình viên', url='https://t.me/tranquan46')
-        ],
-        [InlineKeyboardButton(text='📜 Hướng dẫn sử dụng', url='https://t.me/grouptmq/494')]
-    ]
-    if include_stop:
-        buttons.append([InlineKeyboardButton(text='🛑 Dừng', callback_data='stop')])
-    return InlineKeyboardMarkup(buttons)
-
-async def unlockinsta(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the /unlockinsta command."""
-    if update.message.chat.type == ChatType.PRIVATE:
-          await update.message.reply_text("Bot này chỉ hoạt động trong nhóm chat.")
-    elif update.message.chat.type == ChatType.GROUP or update.message.chat.type == ChatType.SUPERGROUP:
-          if update.message.chat.id != ALLOWED_GROUP_ID:
-            await update.message.reply_text("Bot này chỉ hoạt động trong nhóm chat đã được chỉ định.")
-            return
-
-          # Check if already in progress
-          if "step" in context.user_data:
-              await update.message.reply_text("Bạn đã có một yêu cầu đang xử lý. Vui lòng hoàn thành hoặc dừng yêu cầu đó trước.")
-              return
-
-          user_id = update.message.chat_id  # Lấy ID của người dùng từ tin nhắn
-          message = WELCOME_MESSAGE.format(user_id=user_id)
-          await update.message.reply_text(message, reply_markup=get_main_menu(include_stop=True))
-          context.user_data["step"] = "enter_full_name"
-          context.user_data["user_id"] = update.message.from_user.id  # Store user ID for later checks
-
-    else:
-        await update.message.reply_text("Bot này không hỗ trợ loại nhóm này.")
-
-
-async def enter_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gets the full name from the user."""
-    context.user_data["full_name"] = update.message.text
-    await update.message.reply_text("• Gửi tên người dùng:", reply_markup=get_main_menu(include_stop=True))
-    context.user_data["step"] = "enter_username"
-
-async def enter_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gets the username from the user."""
-    context.user_data["username"] = update.message.text
-    await update.message.reply_text("• Gửi email tài khoản:", reply_markup=get_main_menu(include_stop=True))
-    context.user_data["step"] = "enter_email"
-
-async def enter_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gets the email from the user and sends the unlock request."""
-    context.user_data["email"] = update.message.text
-    await update.message.reply_text("⏳ Đang gửi yêu cầu mở khóa...", reply_markup=get_main_menu())
-
-    # --- Asynchronous Request with aiohttp ---
-    url = "https://www.facebook.com/ajax/help/contact/submit/page"
-    headers = {
-        'accept': "*/*",
-        'accept-encoding': "gzip, deflate, br",
-        'accept-language': "en-US,en;q=0.9,vi;q=0.8",
-        'content-type': "application/x-www-form-urlencoded",
-        'cookie': "fr=07trjqu9vVEDWnFgc..BggI_u...1.0.BggI_u.; datr=NpCAYGDo9894gkBjdeQep6Gb; wd=1366x581",
-        'origin': "https://www.facebook.com",
-        'referer': "https://www.facebook.com/help/instagram/contact/1652567838289083",
-        'user-agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.128 Safari/537.36",
-        'x-fb-lsd': "AVrZo3HBsNc"
-    }
-    data = {
-        'jazoest': "2947",
-        'lsd': "AVrZo3HBsNc",
-        'AccountType': "Personal",
-        'name': context.user_data["full_name"],
-        'Field1489970557888767': context.user_data["username"],
-        'email': context.user_data["email"],
-        'Field236858559849125': "Vietnam",
-        'support_form_id': "1652567838289083",
-        'support_form_hidden_fields': """{"904224879693114":false,"495070633933955":false,"1489970557888767":false,"488955464552044":false,"236858559849125":false,"1638971086372158":true,"1615324488732156":true,"236548136468765":true}""",
-        'support_form_fact_false_fields': "[]",
-        '__user': '0',
-        '__a': '1',
-        '__dyn': "7xe6Fo4OQ1PyUbFuC1swgE98nwgU6C7UW8xi642-7E2vwXx60kO4o3Bw5VCwjE3awbG782Cwooa87i0n2US1kyE1e42C2218w5uwtU6e0D83mwaS0zE0I6aw",
-        '__csr': '',
-        '__req': '5',
-        '__beoa': '0',
-        '__pc': "PHASED:DEFAULT",
-        '__bhv': '2',
-        '__no_rdbl': '0',
-        'dpr': '1',
-        '__ccg': "MODERATE",
-        '__rev': "1003660634",
-        '__s': "xn9ebq:cuks1u:d7qd87",
-        '__hsi': "6953722469318193550-0",
-        '__comet_req': '0',
-        '__spin_r': "1003660634",
-        '__spin_b': "trunk",
-        '__spin_t': "1619039678"
-    }
-
+# Hàm rút gọn URL bằng yeumoney
+def get_shortened_link_phu(url):
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=data) as response:
-                if response.status == 200:
-                    await update.message.reply_text("✅ Yêu cầu mở khóa đã được gửi thành công. Vui lòng kiểm tra email trong thời gian tới.")
-                else:
-                    await update.message.reply_text(f"❌ Có lỗi xảy ra khi gửi yêu cầu.  Mã trạng thái: {response.status}")
+        api_url = f"https://yeumoney.com/QL_api.php?token=5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e&url={url}"
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            return response.text  # Giả sử API trả về link rút gọn
+        else:
+            return f"Lỗi API: {response.status_code}"
     except Exception as e:
-        await update.message.reply_text(f"⚠️ Lỗi xảy ra: {e}")
-    finally:
-        # Clear user data after processing
-        context.user_data.clear()
+        return f"Lỗi khi rút gọn link: {e}"
 
+# Hàm kiểm tra xem đã sang ngày mới chưa
+def da_qua_gio_moi(expiration):
+    return datetime.now() > expiration
 
+# Hàm chạy spam (cải tiến với thông báo chi tiết hơn)
+def run(phone, i):
+    functions = [
+        tv360, robot, fb, mocha, dvcd, myvt, phar, dkimu, fptshop, meta, blu,
+        tgdt, concung, money, sapo, hoang, winmart, alf, guma, kingz, acfc, phuc, medi, emart, hana,
+        med, ghn, shop, gala, fa, cathay, vina, ahamove, air, otpmu, vtpost, shine, domi, fm, cir, hoanvu, tokyo, shop, beau, fu, lote, lon
+    ]
+    
+    success_count = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+        futures = [executor.submit(fn, phone) for fn in functions]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()
+                success_count += 1
+            except Exception as exc:
+                print(f'Generated an exception: {exc}')
+    return f"Spam lần {i}: Thành công {success_count}/{len(functions)} dịch vụ"
 
-async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processes incoming messages during the unlock flow."""
-    # Check if the message is from the correct user and in the correct chat
-    if context.user_data.get("user_id") != update.message.from_user.id or update.message.chat.id != ALLOWED_GROUP_ID:
-        return  # Ignore if not the correct user or chat
+# Xử lý lệnh /sms
+async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+    user_id = update.effective_user.id
+    args = context.args
 
-    step = context.user_data.get("step", "")
-    if step == "enter_full_name":
-        await enter_full_name(update, context)
-    elif step == "enter_username":
-        await enter_username(update, context)
-    elif step == "enter_email":
-        await enter_email(update, context)
+    # Kiểm tra key hiện tại
+    if user_id not in user_keys or da_qua_gio_moi(user_keys[user_id]['expiration']):
+        url, key, expiration = generate_key_and_url(user_id)
+        short_url = get_shortened_link_phu(url)
+        user_keys[user_id] = {'key': key, 'expiration': expiration, 'verified': False}
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Key của bạn đã hết hạn hoặc chưa được tạo.\nLấy key tại: {short_url}\nReply tin nhắn này với key để xác thực."
+        )
+        return
+
+    # Kiểm tra xác thực
+    if not user_keys[user_id]['verified']:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Key hiện tại của bạn: {user_keys[user_id]['key']}\nVui lòng reply tin nhắn này với key để xác thực."
+        )
+        return
+
+    # Kiểm tra định dạng lệnh
+    if len(args) != 2:
+        await context.bot.send_message(chat_id=chat_id, text="Cú pháp: /sms <sdt> <số lần spam>\nVí dụ: /sms 0123456789 5")
+        return
+
+    phone, count = args[0], args[1]
+    
+    try:
+        count = int(count)
+        if count <= 0:
+            raise ValueError("Số lần spam phải lớn hơn 0!")
+    except ValueError as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"Lỗi: {str(e) if str(e) else 'Số lần spam phải là số nguyên!'}")
+        return
+
+    # Thực hiện spam
+    await context.bot.send_message(chat_id=chat_id, text=f"🔥 Bắt đầu spam {phone} {count} lần...")
+    for i in range(1, count + 1):
+        result = run(phone, i)
+        await context.bot.send_message(chat_id=chat_id, text=result)
+        if i < count:  # Chỉ chờ nếu chưa phải lần cuối
+            for j in range(4, 0, -1):
+                await context.bot.send_message(chat_id=chat_id, text=f"⏳ Chờ {j} giây để tiếp tục...")
+                time.sleep(1)
+    await context.bot.send_message(chat_id=chat_id, text="✅ Đã hoàn tất spam!")
+
+# Xử lý xác thực key
+async def verify_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+    user_id = update.effective_user.id
+    message = update.message.text.strip()
+
+    if update.message.reply_to_message and user_id in user_keys:
+        expected_key = user_keys[user_id]['key']
+        if message == expected_key:
+            user_keys[user_id]['verified'] = True
+            await context.bot.send_message(chat_id=chat_id, text="✅ Key xác thực thành công! Bạn có thể dùng /sms ngay bây giờ.")
+        else:
+            await context.bot.send_message(chat_id=chat_id, text="❌ Key không đúng! Vui lòng kiểm tra lại.")
     else:
-        # If no step is defined, but user sends a message, prompt them to start
-        await update.message.reply_text("Vui lòng sử dụng lệnh /unlockinsta để bắt đầu.", reply_markup=get_main_menu())
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ Vui lòng reply tin nhắn yêu cầu key để xác thực!")
 
-async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Cancels the unlock process and clears user data."""
-    query = update.callback_query
-    await query.answer()
+# Hàm khởi động bot
+def main():
+    application = Application.builder().token(TOKEN).build()
 
-    # Clear user data
-    context.user_data.clear()
-    await query.message.edit_text("Đã dừng quy trình mở khóa.  Bạn có thể bắt đầu lại bằng /unlockinsta.", reply_markup=get_main_menu())
+    # Thêm handler
+    application.add_handler(CommandHandler("sms", sms_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, verify_key))
 
-def run_bot():
-    """Starts the bot."""
-    app = Application.builder().token(TOKEN).build()
+    # Chạy bot
+    print("Bot đang chạy...")
+    application.run_polling()
 
-    # Command handlers
-    # Removed the /start command, only /unlockinsta is used
-    app.add_handler(CommandHandler("unlockinsta", unlockinsta))
-
-
-    # Callback query handlers
-    app.add_handler(CallbackQueryHandler(unlockinsta, pattern="^unlockinsta$"))  # Still needed for button press
-    app.add_handler(CallbackQueryHandler(stop, pattern="^stop$"))
-
-    # Message handler (only in allowed group)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.Chat(chat_id=ALLOWED_GROUP_ID), process_message))
-
-
-    logger.info("Bot is running...")
-    app.run_polling()
 if __name__ == "__main__":
-    run_bot()
+    main()
