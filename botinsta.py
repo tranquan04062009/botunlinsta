@@ -13,7 +13,10 @@ TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"
 # Dictionary để lưu key và thông tin người dùng
 user_keys = {}  # {user_id: {'key': key, 'expiration': expiration_date, 'verified': bool}}
 
-# Hàm tạo key và URL
+# Token YeuMoney
+YEUMONEY_TOKEN = "5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e"
+
+# Hàm tạo key và rút gọn URL qua YeuMoney
 def generate_key_and_url(user_id):
     ngay = int(datetime.now().day)
     base_key = str(ngay * 27 + 27)
@@ -21,27 +24,23 @@ def generate_key_and_url(user_id):
     key = f'TMQ{base_key}-{user_id}-{random_str}'  # Key dạng TMQ54-123456789-abcd1234
     expiration_date = datetime.now().replace(hour=23, minute=59, second=0, microsecond=0)
     
-    # Tạo link gốc chứa key
+    # Link gốc chứa key
     original_url = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
     
-    # Rút gọn link bằng yeumoney
-    short_url = get_shortened_link_phu(original_url)
+    # Rút gọn link qua YeuMoney
+    api_url = f"https://yeumoney.com/QL_api.php?token={YEUMONEY_TOKEN}&url={original_url}"
+    try:
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            short_url = response.text.strip()  # Link rút gọn từ YeuMoney
+        else:
+            short_url = f"Lỗi API YeuMoney: {response.status_code}"
+    except Exception as e:
+        short_url = f"Lỗi khi rút gọn: {e}"
     
     return short_url, key, expiration_date
 
-# Hàm rút gọn URL bằng yeumoney
-def get_shortened_link_phu(url):
-    try:
-        api_url = f"https://yeumoney.com/QL_api.php?token=5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e&url={url}"
-        response = requests.get(api_url)
-        if response.status_code == 200:
-            return response.text.strip()  # Giả sử API trả về link rút gọn trực tiếp
-        else:
-            return f"Lỗi API yeumoney: {response.status_code}"
-    except Exception as e:
-        return f"Lỗi khi rút gọn link: {e}"
-
-# Hàm kiểm tra xem đã sang ngày mới chưa
+# Hàm kiểm tra xem key đã hết hạn chưa
 def da_qua_gio_moi(expiration):
     return datetime.now() > expiration
 
@@ -76,16 +75,16 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_keys[user_id] = {'key': key, 'expiration': expiration, 'verified': False}
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"🔑 Key của bạn đã hết hạn hoặc chưa được tạo.\nLấy key tại: {short_url}\nReply tin nhắn này với key để xác thực."
+            text=f"🔑 Lấy key tại link sau:\n{short_url}\nReply tin nhắn này với key để xác thực."
         )
         return
 
     # Kiểm tra xác thực
     if not user_keys[user_id]['verified']:
-        short_url, _, _ = generate_key_and_url(user_id)  # Lấy lại link nếu cần
+        short_url, _, _ = generate_key_and_url(user_id)  # Tạo lại link nếu cần
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"🔑 Vui lòng lấy key tại: {short_url}\nReply tin nhắn này với key để xác thực."
+            text=f"🔑 Lấy key tại link sau:\n{short_url}\nReply tin nhắn này với key để xác thực."
         )
         return
 
