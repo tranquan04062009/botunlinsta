@@ -2,34 +2,51 @@
 import requests
 import concurrent.futures
 import time
+import secrets
+import string
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from datetime import datetime, timedelta
 
-# Thông tin key và token
-def generate_key():
-    ngay = int(time.strftime('%d'))
-    return str(ngay * 25937 + 469173)
+# Tạo key ngẫu nhiên
+def generate_key(length=16):
+    characters = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(characters) for _ in range(length))
 
-def get_shortened_url():
-    key = generate_key()
-    url = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
-    token = "5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e"
+# Lưu trữ key và trạng thái sử dụng
+keys = {}  # {key: is_used (True/False)}
 
+def save_key(key):
+    keys[key] = False  # False: chưa sử dụng, True: đã sử dụng
+
+def use_key(key):
+    if key in keys and not keys[key]:
+        keys[key] = True  # Đánh dấu đã sử dụng
+        return True
+    return False
+
+# Tạo URL gốc chứa key
+def create_url(key):
+    return f"https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}"
+
+# Rút gọn URL bằng API Yeumoney
+def shorten_url(url):
+    api_url = "https://yeumoney.com/QL_api.php"  # Endpoint của Yeumoney (dựa trên yêu cầu của bạn)
+    token = "5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e"  # Token của bạn
     try:
-        response = requests.get(f'https://yeumoney.com/QL_api.php?token={token}&url={url}', timeout=10)
-        data = response.json()
+        response = requests.get(f"{api_url}?token={token}&url={url}", timeout=10)
+        post_url = response.json()
+        if post_url['status'] == "error":
+            print(post_url['message'])
+            return url, None  # Trả về URL gốc và None nếu API lỗi
+        shortened_url = post_url.get('shortenedUrl', url)
+        return shortened_url, post_url.get('key', None)  # Trả về URL rút gọn và key nếu có
+    except Exception as e:
+        print(f"Lỗi khi gọi API Yeumoney: {e}")
+        return url, None  # Trả về URL gốc nếu có lỗi
 
-        if "shortenedUrl" in data:  # Kiểm tra key của API trả về
-            return data["shortenedUrl"]
-        else:
-            return f"Lỗi rút gọn link: {data}"  # Trả về lỗi nếu có
-
-    except requests.RequestException as e:
-        return f"Lỗi kết nối: {str(e)}"
-        
 # Thay YOUR_TELEGRAM_BOT_TOKEN bằng token bot của bạn từ BotFather
-TOKEN = "7834807188:AAFtO6u6mJ-1EaDm4W4qA_cb4KgICqSo734"
+TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
 
 # Lưu trữ thông tin người dùng đã xác thực và thời gian hết hạn
 verified_users = {}  # {user_id: {'key': key, 'expiry': datetime}}
@@ -41,7 +58,7 @@ def is_key_valid(user_id):
     expiry = verified_users[user_id]['expiry']
     return datetime.now() < expiry
 
-# Hàm chạy spam (giữ nguyên từ code gốc)
+# Hàm chạy spam (giữ nguyên từ code gốc, cần định nghĩa các hàm bên trong)
 def run(phone, i):
     functions = [
         tv360, robot, fb, mocha, dvcd, myvt, phar, dkimu, fptshop, meta, blu,
@@ -69,18 +86,12 @@ async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     input_key = args[0]
-    current_key = generate_key()
-    shortened_url, _ = get_shortened_url()  # Lấy URL đã rút gọn qua API
-
-    if input_key != current_key:
-        await context.bot.send_message(chat_id=chat_id, text=f"Key không đúng! Lấy key tại: {shortened_url}")
+    
+    # Kiểm tra key có hợp lệ và chưa được sử dụng
+    if not use_key(input_key):
+        shortened_url, current_key = shorten_url(create_url(generate_key()))  # Tạo mới key và rút gọn URL
+        await context.bot.send_message(chat_id=chat_id, text=f"Key không đúng hoặc đã được sử dụng! Lấy key mới tại: {shortened_url}")
         return
-
-    # Kiểm tra xem key đã được sử dụng bởi người khác chưa
-    for uid, data in verified_users.items():
-        if data['key'] == input_key and uid != user_id:
-            await context.bot.send_message(chat_id=chat_id, text="Key này đã được sử dụng bởi người khác!")
-            return
 
     # Xác thực key thành công
     expiry_time = datetime.now() + timedelta(days=1)  # Hết hạn sau 1 ngày
@@ -96,12 +107,13 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Kiểm tra xác thực
         if not is_key_valid(user_id):
-            current_key = generate_key()
-            original_url = f"https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={current_key}"
-            shortened_url, _ = get_shortened_url()  # Lấy URL đã rút gọn qua API
+            new_key = generate_key()
+            save_key(new_key)  # Lưu key mới
+            url = create_url(new_key)
+            shortened_url, _ = shorten_url(url)  # Rút gọn URL qua Yeumoney
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"Bạn cần xác thực key trước!\nLấy key tại: {shortened_url}\nSau đó dùng: /verify <key đã lấy>"
+                text=f"Bạn cần xác thực key trước!\nLấy key tại: {shortened_url}\nSau đó dùng: /verify {new_key}"
             )
             return
 
