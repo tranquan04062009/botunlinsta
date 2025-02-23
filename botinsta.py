@@ -13,6 +13,9 @@ TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"
 # Dictionary để lưu key và thông tin người dùng
 user_keys = {}  # {user_id: {'key': key, 'expiration': expiration_date, 'verified': bool}}
 
+# Dictionary để lưu key và thông tin người dùng
+user_keys = {}  # {user_id: {'key': key, 'expiration': expiration_date, 'verified': bool}}
+
 # Token YeuMoney
 YEUMONEY_TOKEN = "5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e"
 
@@ -75,7 +78,7 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_keys[user_id] = {'key': key, 'expiration': expiration, 'verified': False}
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"🔑 Lấy key tại link sau:\n{short_url}\nReply tin nhắn này với key để xác thực."
+            text=f"🔑 Vượt link sau để lấy key:\n{short_url}\nSau khi lấy key, dùng lệnh: /verify <key>"
         )
         return
 
@@ -84,7 +87,7 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         short_url, _, _ = generate_key_and_url(user_id)  # Tạo lại link nếu cần
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"🔑 Lấy key tại link sau:\n{short_url}\nReply tin nhắn này với key để xác thực."
+            text=f"🔑 Vượt link sau để lấy key:\n{short_url}\nSau khi lấy key, dùng lệnh: /verify <key>"
         )
         return
 
@@ -114,21 +117,27 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 time.sleep(1)
     await context.bot.send_message(chat_id=chat_id, text="✅ Đã hoàn tất spam!")
 
-# Xử lý xác thực key
-async def verify_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Xử lý lệnh /verify
+async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
     user_id = update.effective_user.id
-    message = update.message.text.strip()
+    args = context.args
 
-    if update.message.reply_to_message and user_id in user_keys:
+    if len(args) != 1:
+        await context.bot.send_message(chat_id=chat_id, text="Cú pháp: /verify <key>\nVí dụ: /verify TMQ54-123456789-abcd1234")
+        return
+
+    provided_key = args[0].strip()
+    
+    if user_id in user_keys:
         expected_key = user_keys[user_id]['key']
-        if message == expected_key:
+        if provided_key == expected_key:
             user_keys[user_id]['verified'] = True
             await context.bot.send_message(chat_id=chat_id, text="✅ Key xác thực thành công! Bạn có thể dùng /sms ngay bây giờ.")
         else:
             await context.bot.send_message(chat_id=chat_id, text="❌ Key không đúng! Vui lòng kiểm tra lại.")
     else:
-        await context.bot.send_message(chat_id=chat_id, text="⚠️ Vui lòng reply tin nhắn yêu cầu key để xác thực!")
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ Bạn chưa được cấp key. Vui lòng dùng /sms để lấy link key trước!")
 
 # Hàm khởi động bot
 def main():
@@ -136,7 +145,7 @@ def main():
 
     # Thêm handler
     application.add_handler(CommandHandler("sms", sms_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, verify_key))
+    application.add_handler(CommandHandler("verify", verify_command))
 
     # Chạy bot
     print("Bot đang chạy...")
