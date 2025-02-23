@@ -15,15 +15,19 @@ def get_shortened_url():
     key = generate_key()
     url = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
     token = "5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e"
-    response = requests.get(f'https://yeumoney.com/QL_api.php?token={token}&url={url}')
-    post_url = response.json()
-    if post_url['status'] == "error":
-        print(post_url['message'])
-        return url, key  # Trả về URL gốc nếu không rút gọn được
-    return post_url.get('shortenedUrl', url), key
+    try:
+        response = requests.get(f'https://yeumoney.com/QL_api.php?token={token}&url={url}', timeout=10)
+        post_url = response.json()
+        if post_url['status'] == "error":
+            print(post_url['message'])
+            return url, key  # Trả về URL gốc nếu không rút gọn được
+        return post_url.get('shortenedUrl', url), key
+    except Exception as e:
+        print(f"Lỗi khi gọi API yeumoney: {e}")
+        return url, key  # Trả về URL gốc nếu có lỗi
 
 # Thay YOUR_TELEGRAM_BOT_TOKEN bằng token bot của bạn từ BotFather
-TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"
+TOKEN = "7834807188:AAFtO6u6mJ-1EaDm4W4qA_cb4KgICqSo734"
 
 # Lưu trữ thông tin người dùng đã xác thực và thời gian hết hạn
 verified_users = {}  # {user_id: {'key': key, 'expiry': datetime}}
@@ -87,43 +91,42 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     args = context.args
 
-    # Kiểm tra xác thực
-    if not is_key_valid(user_id):
-        shortened_url, current_key = get_shortened_url()
-        if shortened_url:
+    try:
+        # Kiểm tra xác thực
+        if not is_key_valid(user_id):
+            shortened_url, current_key = get_shortened_url()
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"Bạn cần xác thực key trước!\nLấy key tại: {shortened_url}\nSau đó dùng: /verify {current_key}"
             )
-        else:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text="Không thể tạo link rút gọn, vui lòng thử lại sau!"
-            )
-        return
+            return
 
-    # Kiểm tra định dạng đầu vào
-    if len(args) != 2:
-        await context.bot.send_message(chat_id=chat_id, text="Vui lòng sử dụng: /sms <sdt> <số lần spam>")
-        return
+        # Kiểm tra định dạng đầu vào
+        if len(args) != 2:
+            await context.bot.send_message(chat_id=chat_id, text="Vui lòng sử dụng: /sms <sdt> <số lần spam>")
+            return
 
-    phone, count = args[0], args[1]
-    
-    try:
-        count = int(count)
-    except ValueError:
-        await context.bot.send_message(chat_id=chat_id, text="Số lần spam phải là số nguyên!")
-        return
+        phone, count = args[0], args[1]
+        
+        try:
+            count = int(count)
+        except ValueError:
+            await context.bot.send_message(chat_id=chat_id, text="Số lần spam phải là số nguyên!")
+            return
 
-    await context.bot.send_message(chat_id=chat_id, text=f"Bắt đầu spam số {phone} {count} lần...")
+        await context.bot.send_message(chat_id=chat_id, text=f"Bắt đầu spam số {phone} {count} lần...")
 
-    # Thực hiện spam
-    for i in range(1, count + 1):
-        result = run(phone, i)
-        await context.bot.send_message(chat_id=chat_id, text=result)
-        for j in range(4, 0, -1):
-            await context.bot.send_message(chat_id=chat_id, text=f"Vui lòng chờ {j} giây")
-            time.sleep(1)
+        # Thực hiện spam
+        for i in range(1, count + 1):
+            result = run(phone, i)
+            await context.bot.send_message(chat_id=chat_id, text=result)
+            for j in range(4, 0, -1):
+                await context.bot.send_message(chat_id=chat_id, text=f"Vui lòng chờ {j} giây")
+                time.sleep(1)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"Lỗi: {str(e)}")
+        print(f"Lỗi trong xử lý /sms: {e}")
 
 # Hàm khởi động bot
 def main():
@@ -135,7 +138,7 @@ def main():
 
     # Chạy bot
     print("Bot đang chạy...")
-    application.run_polling()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
