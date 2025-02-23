@@ -15,10 +15,11 @@ def get_shortened_url():
     key = generate_key()
     url = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
     token = "5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e"
-    post_url = requests.get(f'https://yeumoney.com/QL_api.php?token={token}&url={url}').json()
+    response = requests.get(f'https://yeumoney.com/QL_api.php?token={token}&url={url}')
+    post_url = response.json()
     if post_url['status'] == "error":
         print(post_url['message'])
-        return None
+        return url, key  # Trả về URL gốc nếu không rút gọn được
     return post_url.get('shortenedUrl', url), key
 
 # Thay YOUR_TELEGRAM_BOT_TOKEN bằng token bot của bạn từ BotFather
@@ -89,7 +90,16 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Kiểm tra xác thực
     if not is_key_valid(user_id):
         shortened_url, current_key = get_shortened_url()
-        await context.bot.send_message(chat_id=chat_id, text=f"Bạn cần xác thực key trước! Lấy key tại: {shortened_url}\nSau đó dùng: /verify {current_key}")
+        if shortened_url:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"Bạn cần xác thực key trước!\nLấy key tại: {shortened_url}\nSau đó dùng: /verify {current_key}"
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="Không thể tạo link rút gọn, vui lòng thử lại sau!"
+            )
         return
 
     # Kiểm tra định dạng đầu vào
