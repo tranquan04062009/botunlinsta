@@ -20,7 +20,7 @@ def get_shortened_url():
         post_url = response.json()
         if post_url['status'] == "error":
             print(post_url['message'])
-            return url, key  # Trả về URL gốc nếu không rút gọn được
+            return url, key  # Trả về URL gốc nếu API lỗi
         return post_url.get('shortenedUrl', url), key
     except Exception as e:
         print(f"Lỗi khi gọi API yeumoney: {e}")
@@ -68,7 +68,7 @@ async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     input_key = args[0]
     current_key = generate_key()
-    shortened_url, _ = get_shortened_url()
+    shortened_url, _ = get_shortened_url()  # Lấy URL đã rút gọn qua API
 
     if input_key != current_key:
         await context.bot.send_message(chat_id=chat_id, text=f"Key không đúng! Lấy key tại: {shortened_url}")
@@ -94,10 +94,12 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Kiểm tra xác thực
         if not is_key_valid(user_id):
-            shortened_url, current_key = get_shortened_url()
+            current_key = generate_key()
+            original_url = f"https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={current_key}"
+            shortened_url, _ = get_shortened_url()  # Lấy URL đã rút gọn qua API
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"Bạn cần xác thực key trước!\nLấy key tại: {shortened_url}\nSau đó dùng: /verify {current_key}"
+                text=f"Bạn cần xác thực key trước!\nLấy key tại: {shortened_url}\nSau đó dùng: /verify <key đã lấy>"
             )
             return
 
