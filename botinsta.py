@@ -15,17 +15,19 @@ def get_shortened_url():
     key = generate_key()
     url = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
     token = "5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e"
+
     try:
         response = requests.get(f'https://yeumoney.com/QL_api.php?token={token}&url={url}', timeout=10)
-        post_url = response.json()
-        if post_url['status'] == "error":
-            print(post_url['message'])
-            return url, key  # Trả về URL gốc nếu API lỗi
-        return post_url.get('shortenedUrl', url), key
-    except Exception as e:
-        print(f"Lỗi khi gọi API yeumoney: {e}")
-        return url, key  # Trả về URL gốc nếu có lỗi
+        data = response.json()
 
+        if "shortenedUrl" in data:  # Kiểm tra key của API trả về
+            return data["shortenedUrl"]
+        else:
+            return f"Lỗi rút gọn link: {data}"  # Trả về lỗi nếu có
+
+    except requests.RequestException as e:
+        return f"Lỗi kết nối: {str(e)}"
+        
 # Thay YOUR_TELEGRAM_BOT_TOKEN bằng token bot của bạn từ BotFather
 TOKEN = "7834807188:AAFtO6u6mJ-1EaDm4W4qA_cb4KgICqSo734"
 
