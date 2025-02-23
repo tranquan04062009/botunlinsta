@@ -13,15 +13,21 @@ TOKEN = "7834807188:AAHIwCflT9qY-Vhjyu22HhSKHGyHANGUZHA"
 # Dictionary để lưu key và thông tin người dùng
 user_keys = {}  # {user_id: {'key': key, 'expiration': expiration_date, 'verified': bool}}
 
-# Hàm tạo key và URL với chuỗi ngẫu nhiên
+# Hàm tạo key và URL
 def generate_key_and_url(user_id):
     ngay = int(datetime.now().day)
     base_key = str(ngay * 27 + 27)
-    random_str = secrets.token_hex(4)  # Tạo chuỗi ngẫu nhiên 8 ký tự (hex)
+    random_str = secrets.token_hex(4)  # Chuỗi ngẫu nhiên 8 ký tự
     key = f'TMQ{base_key}-{user_id}-{random_str}'  # Key dạng TMQ54-123456789-abcd1234
     expiration_date = datetime.now().replace(hour=23, minute=59, second=0, microsecond=0)
-    url = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
-    return url, key, expiration_date
+    
+    # Tạo link gốc chứa key
+    original_url = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
+    
+    # Rút gọn link bằng yeumoney
+    short_url = get_shortened_link_phu(original_url)
+    
+    return short_url, key, expiration_date
 
 # Hàm rút gọn URL bằng yeumoney
 def get_shortened_link_phu(url):
@@ -29,9 +35,9 @@ def get_shortened_link_phu(url):
         api_url = f"https://yeumoney.com/QL_api.php?token=5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e&url={url}"
         response = requests.get(api_url)
         if response.status_code == 200:
-            return response.text  # Giả sử API trả về link rút gọn
+            return response.text.strip()  # Giả sử API trả về link rút gọn trực tiếp
         else:
-            return f"Lỗi API: {response.status_code}"
+            return f"Lỗi API yeumoney: {response.status_code}"
     except Exception as e:
         return f"Lỗi khi rút gọn link: {e}"
 
@@ -39,7 +45,7 @@ def get_shortened_link_phu(url):
 def da_qua_gio_moi(expiration):
     return datetime.now() > expiration
 
-# Hàm chạy spam (cải tiến với thông báo chi tiết hơn)
+# Hàm chạy spam
 def run(phone, i):
     functions = [
         tv360, robot, fb, mocha, dvcd, myvt, phar, dkimu, fptshop, meta, blu,
@@ -66,20 +72,20 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Kiểm tra key hiện tại
     if user_id not in user_keys or da_qua_gio_moi(user_keys[user_id]['expiration']):
-        url, key, expiration = generate_key_and_url(user_id)
-        short_url = get_shortened_link_phu(url)
+        short_url, key, expiration = generate_key_and_url(user_id)
         user_keys[user_id] = {'key': key, 'expiration': expiration, 'verified': False}
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"Key của bạn đã hết hạn hoặc chưa được tạo.\nLấy key tại: {short_url}\nReply tin nhắn này với key để xác thực."
+            text=f"🔑 Key của bạn đã hết hạn hoặc chưa được tạo.\nLấy key tại: {short_url}\nReply tin nhắn này với key để xác thực."
         )
         return
 
     # Kiểm tra xác thực
     if not user_keys[user_id]['verified']:
+        short_url, _, _ = generate_key_and_url(user_id)  # Lấy lại link nếu cần
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"Key hiện tại của bạn: {user_keys[user_id]['key']}\nVui lòng reply tin nhắn này với key để xác thực."
+            text=f"🔑 Vui lòng lấy key tại: {short_url}\nReply tin nhắn này với key để xác thực."
         )
         return
 
@@ -103,7 +109,7 @@ async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i in range(1, count + 1):
         result = run(phone, i)
         await context.bot.send_message(chat_id=chat_id, text=result)
-        if i < count:  # Chỉ chờ nếu chưa phải lần cuối
+        if i < count:
             for j in range(4, 0, -1):
                 await context.bot.send_message(chat_id=chat_id, text=f"⏳ Chờ {j} giây để tiếp tục...")
                 time.sleep(1)
