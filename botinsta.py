@@ -46,7 +46,7 @@ def shorten_url(url):
         return url, None  # Trả về URL gốc nếu có lỗi
 
 # Thay YOUR_TELEGRAM_BOT_TOKEN bằng token bot của bạn từ BotFather
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+TOKEN = "7834807188:AAFtO6u6mJ-1EaDm4W4qA_cb4KgICqSo734"
 
 # Lưu trữ thông tin người dùng đã xác thực và thời gian hết hạn
 verified_users = {}  # {user_id: {'key': key, 'expiry': datetime}}
