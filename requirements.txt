@@ -5,3 +5,4 @@ aiohttp
 datetime
 bs4
 pyTelegramBotAPI
+user_agent
