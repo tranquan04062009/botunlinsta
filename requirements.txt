@@ -4,4 +4,4 @@ colorama
 aiohttp
 datetime
 bs4
-PyTelegramAPI
+pyTelegramBotAPI
