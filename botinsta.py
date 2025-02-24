@@ -1,130 +1,360 @@
-# CRE: TRANHAI AND SEA
+import requests 
+import telebot 
+from telebot import types
 import requests
-import concurrent.futures
-import time
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from uuid import uuid4
+import random
+import os
+import json
+from user_agent import generate_user_agent
+import sys
+from datetime import datetime
+from bs4 import BeautifulSoup
+import datetime
 
-# Tính toán key dựa trên ngày hiện tại
-ngay = int(time.strftime('%d'))
-key = str(ngay * 25937 + 469173)
-urlwebkey = f'https://tranquankeybot.blogspot.com/2025/02/keybot.html?ma={key}'
-token_yeumoney = "5f8ca8734e93fabf98f50400ca8744f5d929aa41768059813680cc3f52fd4b1e"
-post_url = requests.get(f'https://yeumoney.com/QL_api.php?token={token_yeumoney}&url={urlwebkey}').json()
+# Token cố định thay vì nhập từ người dùng
+tok = "7834807188:AAFtO6u6mJ-1EaDm4W4qA_cb4KgICqSo734"  # Thay YOUR_FIXED_TOKEN_HERE bằng token thực tế của bạn
+zzk = 0
+bot = telebot.TeleBot(tok)
 
-if post_url.get('status') == "error":
-    print(post_url.get('message', 'Lỗi không xác định'))
-    quit()
-else:
-    link_key = post_url.get('shortenedUrl')
+@bot.message_handler(commands=['start'])
+def start(message):
+    global zzk
+    zzk += 1
+    nm = message.from_user.first_name
+    id2 = message.from_user.id
+    userk = message.from_user.username
+    zxu = datetime.datetime.now()
+    tt = f'''
+- Thành viên đang sử dụng bot👥… 
+ـــــــــــــــــــــــــــــــــــــــ
+Tên người dùng: {nm}
+Username: @{userk}
+ID người dùng: {id2}
+Số thứ tự người dùng: {zzk}
+Thời gian: {zxu}
+ـــــــــــــــــــــــــــــــــــــــ
 
-# Token bot Telegram (thay bằng token của bạn)
-TOKEN = "7834807188:AAFtO6u6mJ-1EaDm4W4qA_cb4KgICqSo734"
-
-# Lưu trữ thông tin key và người dùng đã xác thực
-verified_users = {}  # {chat_id: {'key': key, 'date': ngay}}
-current_date = ngay
-
-# Hàm kiểm tra ngày để reset key
-def check_date_reset():
-    global current_date, verified_users
-    new_date = int(time.strftime('%d'))
-    if new_date != current_date:
-        current_date = new_date
-        verified_users.clear()  # Xóa tất cả key đã xác thực khi sang ngày mới
-        global key
-        key = str(new_date * 25937 + 469173)  # Cập nhật key mới
-
-# Hàm chạy spam (giữ nguyên từ code gốc)
-def run(phone, i):
-    functions = [
-        tv360, robot, fb, mocha, dvcd, myvt, phar, dkimu, fptshop, meta, blu,
-        tgdt, concung, money, sapo, hoang, winmart, alf, guma, kingz, acfc, phuc, medi, emart, hana,
-        med, ghn, shop, gala, fa, cathay, vina, ahamove, air, otpmu, vtpost, shine, domi, fm, cir, hoanvu, tokyo, shop, beau, fu, lote, lon
-    ]
+    key = types.InlineKeyboardMarkup()
+    bot.send_message(message.chat.id, f"<strong>{tt}</strong>", parse_mode="html", reply_markup=key)
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
-        futures = [executor.submit(fn, phone) for fn in functions]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                future.result()
-            except Exception as exc:
-                print(f'Generated an exception: {exc}')
-    return f"Spam thành công lần: {i}"
-
-# Xử lý lệnh /verify
-async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat_id
-    args = context.args
-
-    check_date_reset()  # Kiểm tra ngày để reset key nếu cần
-
-    if len(args) != 1:
-        await context.bot.send_message(chat_id=chat_id, text="Vui lòng sử dụng lệnh đúng cú pháp: /verify <key>")
-        return
-
-    input_key = args[0]
-
-    # Kiểm tra key
-    if input_key != key:
-        await context.bot.send_message(chat_id=chat_id, text="Key sai! Vui lòng lấy key đúng tại link sau và thử lại.\n" + link_key)
-        return
-
-    # Kiểm tra xem key đã được ai đó xác thực chưa
-    for user_id, data in verified_users.items():
-        if data['key'] == input_key and user_id != chat_id:
-            await context.bot.send_message(chat_id=chat_id, text="Key này đã được người khác sử dụng! Mỗi key chỉ dành cho một người.")
-            return
-
-    # Lưu thông tin xác thực cho người dùng
-    verified_users[chat_id] = {'key': input_key, 'date': current_date}
-    await context.bot.send_message(chat_id=chat_id, text="Xác thực key thành công! Bạn có thể sử dụng lệnh /sms ngay bây giờ.\nLưu ý: Key chỉ có hiệu lực trong hôm nay.")
-
-# Xử lý lệnh /sms
-async def sms_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat_id
-    args = context.args
-
-    check_date_reset()  # Kiểm tra ngày để reset key nếu cần
-
-    # Kiểm tra xem người dùng đã xác thực key chưa
-    if chat_id not in verified_users or verified_users[chat_id]['date'] != current_date:
-        await context.bot.send_message(chat_id=chat_id, text=f"Bạn cần xác thực key trước khi sử dụng! Lấy key tại: {link_key}\nSau đó dùng lệnh: /verify <key>")
-        return
-
-    if len(args) != 2:
-        await context.bot.send_message(chat_id=chat_id, text="Vui lòng sử dụng lệnh đúng cú pháp: /sms <sdt> <số lần spam>")
-        return
-
-    phone, count = args[0], args[1]
+    zin = types.InlineKeyboardButton(text="Báo cáo tự tử", callback_data='zn')
+    zge = types.InlineKeyboardButton(text="Thù hận hoặc lời nói kích động", callback_data='zx')
+    zon = types.InlineKeyboardButton(text="Thông tin gây hại hoặc giả mạo", callback_data='zo')
+    zan = types.InlineKeyboardButton(text="Lừa đảo hoặc gian lận", callback_data='ze')
     
+    fr = message.from_user.first_name
+    maac = types.InlineKeyboardMarkup()
+    maac.row_width = 2
+    maac.add(zin, zge, zon, zan)
+    bot.send_message(message.chat.id, f"<strong>Chào mừng bạn: | {fr} | đến với bot báo cáo TikTok thực tế. Để xem thông tin của bạn [ /info ]</strong>", parse_mode="html", reply_markup=maac)
+
+@bot.callback_query_handler(func=lambda call: True)
+def st(call):
+    if call.data == "zn":
+        nc1 = types.InlineKeyboardMarkup(row_width=2)
+        MC = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Gửi số lượng báo cáo cần hoàn thành', reply_markup=nc1)
+        bot.register_next_step_handler(MC, z1)
+    
+    elif call.data == "zo":
+        nc1 = types.InlineKeyboardMarkup(row_width=2)
+        MC = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Gửi số lượng báo cáo cần hoàn thành', reply_markup=nc1)
+        bot.register_next_step_handler(MC, z3)
+
+    elif call.data == "ze":
+        nc1 = types.InlineKeyboardMarkup(row_width=2)
+        MC = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Gửi số lượng báo cáo cần hoàn thành', reply_markup=nc1)
+        bot.register_next_step_handler(MC, z4)    
+    elif call.data == "zx":
+        nc1 = types.InlineKeyboardMarkup(row_width=2)
+        MC = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Gửi số lượng báo cáo cần hoàn thành', reply_markup=nc1)
+        bot.register_next_step_handler(MC, z2)
+
+def z1(message):
     try:
-        count = int(count)
-    except ValueError:
-        await context.bot.send_message(chat_id=chat_id, text="Số lần spam phải là số nguyên!")
+        sufi = int(message.text)
+    except:
+        key = types.InlineKeyboardMarkup()
+        bot.send_message(message.chat.id, f"<strong>Bạn đã nhập giá trị sai…</strong>", parse_mode="html", reply_markup=key)
         return
+    mw = bot.send_message(message.chat.id, 'Gửi username cần báo cáo:')
+    bot.register_next_step_handler(mw, ass, sufi)
 
-    await context.bot.send_message(chat_id=chat_id, text=f"Bắt đầu spam số {phone} {count} lần...")
+def ass(message, sufi):
+    addd = 0
+    b = message.chat.id
+    user = message.text
+    try:
+        headers = {
+            'Host': 'www.woodrowpoe.top',
+            'Connection': 'keep-alive',
+            'package': 'woodrowpoe.tik.realfans',
+            'apptype': 'android',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; ANY-LX2 Build/HONORANY-L22CQ; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.124 Mobile Safari/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'idfa': '6160fb46-9862-4d44-95b9-b1911283231f',
+            'Accept': 'application/json, text/plain, */*',
+            'version': '1.1',
+            'Origin': 'http://www.woodrowpoe.top',
+            'X-Requested-With': 'woodrowpoe.tik.realfans',
+            'Referer': 'http://www.woodrowpoe.top//',
+            'Accept-Language': 'ar-IQ,ar;q=0.9,en-IQ;q=0.8,en-US;q=0.7,en;q=0.6',
+        }
+        data = {
+            'username': user,
+        }
+        ress = requests.post('http://www.woodrowpoe.top/api/v1/tikTokGetUserProfileInfo', headers=headers, data=data).json()
+        iiid = ress['data']['pk']
+        bot.send_message(message.chat.id, f"<strong>Đã trích xuất ID người dùng thành công ✅\n📜 ID: {iiid}</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    except:
+        bot.send_message(message.chat.id, f"<strong>Username không đúng, vui lòng kiểm tra lại và thử lại</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        return
+    
+    add = int(sufi)
+    bot.send_message(message.chat.id, f"<strong>Đang gửi báo cáo, vui lòng chờ...</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    for i in range(add):
+        addd += 1
+        cookies = {
+            'odin_tt': '40c40ad4772022e96afc8c9e5ce6440a94936ed1bd537e7879ee88784cfe22fca0848fe32c54174d839784124b12b8c27d20352b659177c2f833576358d3c1579c239bd3c573702ec998bbcd2e1e8878',
+        }
+        headers = {
+            'Host': 'api16-normal-c-alisg.tiktokv.com',
+            'x-ss-req-ticket': '1719661750667',
+            'x-tt-token': '034151afef2522b5e1c2add1168b0ca8db05a23b3056f1eed37d978de66524ba11681c8643b9fc579bc98e660ed51b1e4582cb1559e6188d3cf61df9d0e0aa45a337d96e167c5f6d764bd9f526fb9d46bf27572ff8fe1dc7e38b1aaeaec2f1340cac6-CkAyOGZkZjliNzgzNDQ5ZDVmMWE0Mzk5MTczZGZkYzg2NjdjOTU1MzMwMzI4ZDgyMmMxMjdhZjFlYjM5OThiNzQ4-2.0.0',
+            'sdk-version': '1',
+            'x-ss-dp': '1233',
+            'x-tt-trace-id': '00-63d3eb311062c1cf916902c6055b04d1-63d3eb311062c1cf-01',
+            'user-agent': 'com.zhiliaoapp.musically/2021306050 (Linux; U; Android 13; ar_IQ_#u-nu-latn; ANY-LX2; Build/HONORANY-L22CQ; Cronet/TTNetVersion:57844a4b 2019-10-16)',
+            'x-khronos': '1719661750',
+            'x-gorgon': '030090c00400ea7f1dc018e27740ee56e70a592b81f21cdde9f8',
+        }
+        re = requests.get(
+            f'https://api16-normal-c-alisg.tiktokv.com/aweme/v2/aweme/feedback/?object_id={iiid}&owner_id={iiid}&report_type=user&locale=ar&locale=ar&isFirst=1&report_desc=&uri=&reason=90061&category=&request_tag_from=h5&manifest_version_code=2021306050&_rticket=1719661750669&current_region=IQ&app_language=ar&app_type=normal&iid=7385890279574865669&channel=googleplay&device_type=ANY-LX2&language=ar&resolution=1080*2298&openudid=39e9b96bb5c6e336&update_version_code=2021306050&ac2=wifi&sys_region=IQ&os_api=33&uoo=0&is_my_cn=0&timezone_name=Asia%2FBaghdad&dpi=480&residence=IQ&carrier_region=IQ&ac=wifi&device_id=7116197109661091333&pass-route=1&mcc_mnc=41805&os_version=13&timezone_offset=10800&version_code=130605&carrier_region_v2=418&app_name=musical_ly&ab_version=13.6.5&version_name=13.6.5&device_brand=HONOR&ssmix=a&pass-region=1&device_platform=android&build_number=13.6.5&region=ar&aid=1233&ts=1719661750',
+            cookies=cookies,
+            headers=headers,
+        ).text
+        if "status_message" in re or "status_code" in re or "extra" in re:
+            bot.send_message(message.chat.id, f"<strong>Đã gửi báo cáo số {addd} thành công ✅</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        else:
+            bot.send_message(message.chat.id, f"<strong>Gửi báo cáo số {addd} thất bại ❌</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        
+        if int(addd) == int(add):
+            bot.send_message(message.chat.id, f"<strong>Đã hoàn thành số báo cáo yêu cầu thành công ✅</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
 
-    # Thực hiện spam
-    for i in range(1, count + 1):
-        result = run(phone, i)
-        await context.bot.send_message(chat_id=chat_id, text=result)
-        for j in range(4, 0, -1):
-            await context.bot.send_message(chat_id=chat_id, text=f"Vui lòng chờ {j} giây")
-            time.sleep(1)
+def z2(message):
+    try:
+        sufi = int(message.text)
+    except:
+        key = types.InlineKeyboardMarkup()
+        bot.send_message(message.chat.id, f"<strong>Bạn đã nhập giá trị sai…</strong>", parse_mode="html", reply_markup=key)
+        return
+    mw = bot.send_message(message.chat.id, 'Gửi username cần báo cáo:')
+    bot.register_next_step_handler(mw, asss, sufi)
 
-# Hàm khởi động bot
-def main():
-    application = Application.builder().token(TOKEN).build()
+def asss(message, sufi):
+    addd = 0
+    b = message.chat.id
+    user = message.text
+    try:
+        headers = {
+            'Host': 'www.woodrowpoe.top',
+            'Connection': 'keep-alive',
+            'package': 'woodrowpoe.tik.realfans',
+            'apptype': 'android',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; ANY-LX2 Build/HONORANY-L22CQ; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.124 Mobile Safari/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'idfa': '6160fb46-9862-4d44-95b9-b1911283231f',
+            'Accept': 'application/json, text/plain, */*',
+            'version': '1.1',
+            'Origin': 'http://www.woodrowpoe.top',
+            'X-Requested-With': 'woodrowpoe.tik.realfans',
+            'Referer': 'http://www.woodrowpoe.top//',
+            'Accept-Language': 'ar-IQ,ar;q=0.9,en-IQ;q=0.8,en-US;q=0.7,en;q=0.6',
+        }
+        data = {
+            'username': user,
+        }
+        ress = requests.post('http://www.woodrowpoe.top/api/v1/tikTokGetUserProfileInfo', headers=headers, data=data).json()
+        iiid = ress['data']['pk']
+        bot.send_message(message.chat.id, f"<strong>Đã trích xuất ID người dùng thành công ✅\n📜 ID: {iiid}</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    except:
+        bot.send_message(message.chat.id, f"<strong>Username không đúng, vui lòng kiểm tra lại và thử lại</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        return
+    
+    add = int(sufi)
+    bot.send_message(message.chat.id, f"<strong>Đang gửi báo cáo, vui lòng chờ...</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    for i in range(add):
+        addd += 1
+        cookies = {
+            'odin_tt': '40c40ad4772022e96afc8c9e5ce6440a94936ed1bd537e7879ee88784cfe22fca0848fe32c54174d839784124b12b8c27d20352b659177c2f833576358d3c1579c239bd3c573702ec998bbcd2e1e8878',
+            'msToken': 'SDcH0HN9daA5EUvWTrZQvwROEZak08vvXhd34ckAknKx7K8OD6AMmoH6DbATDF1BXAiYfDslEyEu0_OyNg8o9fJPBDnLnud81JQ1i7PueNrgdDQYazKGLKUVlA==',
+        }
+        headers = {
+            'Host': 'api16-normal-c-alisg.tiktokv.com',
+            'x-ss-req-ticket': '1719661996880',
+            'x-tt-token': '034151afef2522b5e1c2add1168b0ca8db05a23b3056f1eed37d978de66524ba11681c8643b9fc579bc98e660ed51b1e4582cb1559e6188d3cf61df9d0e0aa45a337d96e167c5f6d764bd9f526fb9d46bf27572ff8fe1dc7e38b1aaeaec2f1340cac6-CkAyOGZkZjliNzgzNDQ5ZDVmMWE0Mzk5MTczZGZkYzg2NjdjOTU1MzMwMzI4ZDgyMmMxMjdhZjFlYjM5OThiNzQ4-2.0.0',
+            'sdk-version': '1',
+            'x-ss-dp': '1233',
+            'x-tt-trace-id': '00-63d7ace61062c1cf916902c6054c04d1-63d7ace61062c1cf-01',
+            'user-agent': 'com.zhiliaoapp.musically/2021306050 (Linux; U; Android 13; ar; ANY-LX2; Build/HONORANY-L22CQ; Cronet/TTNetVersion:57844a4b 2019-10-16)',
+            'x-khronos': '1719661996',
+            'x-gorgon': '0300b06f04008a23ba6ef10af5a029eaa64c4086b5bfc1baacd2',
+        }
+        re = requests.get(
+            f'https://api16-normal-c-alisg.tiktokv.com/aweme/v2/aweme/feedback/?object_id={iiid}&owner_id={iiid}&report_type=user&locale=ar&locale=ar&isFirst=1&report_desc=&uri=&reason=9002&category=&request_tag_from=h5&manifest_version_code=2021306050&_rticket=1719661996881&current_region=IQ&app_language=ar&app_type=normal&iid=7385890279574865669&channel=googleplay&device_type=ANY-LX2&language=ar&resolution=1080*2298&openudid=39e9b96bb5c6e336&update_version_code=2021306050&ac2=wifi&sys_region=IQ&os_api=33&uoo=0&is_my_cn=0&timezone_name=Asia%2FBaghdad&dpi=480&residence=IQ&carrier_region=IQ&ac=wifi&device_id=7116197109661091333&pass-route=1&mcc_mnc=41805&os_version=13&timezone_offset=10800&version_code=130605&carrier_region_v2=418&app_name=musical_ly&ab_version=13.6.5&version_name=13.6.5&device_brand=HONOR&ssmix=a&pass-region=1&device_platform=android&build_number=13.6.5&region=ar&aid=1233&ts=1719661996',
+            cookies=cookies,
+            headers=headers,
+        ).text
+        if "status_message" in re or "status_code" in re or "extra" in re:
+            bot.send_message(message.chat.id, f"<strong>Đã gửi báo cáo số {addd} thành công ✅</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        else:
+            bot.send_message(message.chat.id, f"<strong>Gửi báo cáo số {addd} thất bại ❌</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        
+        if int(addd) == int(add):
+            bot.send_message(message.chat.id, f"<strong>Đã hoàn thành số báo cáo yêu cầu thành công ✅</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
 
-    # Thêm handler cho các lệnh
-    application.add_handler(CommandHandler("verify", verify_command))
-    application.add_handler(CommandHandler("sms", sms_command))
+def z3(message):
+    try:
+        sufi = int(message.text)
+    except:
+        key = types.InlineKeyboardMarkup()
+        bot.send_message(message.chat.id, f"<strong>Bạn đã nhập giá trị sai…</strong>", parse_mode="html", reply_markup=key)
+        return
+    mw = bot.send_message(message.chat.id, 'Gửi username cần báo cáo:')
+    bot.register_next_step_handler(mw, assss, sufi)
 
-    # Chạy bot
-    print("Bot đang chạy...")
-    application.run_polling()
+def assss(message, sufi):
+    addd = 0
+    b = message.chat.id
+    user = message.text
+    try:
+        headers = {
+            'Host': 'www.woodrowpoe.top',
+            'Connection': 'keep-alive',
+            'package': 'woodrowpoe.tik.realfans',
+            'apptype': 'android',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; ANY-LX2 Build/HONORANY-L22CQ; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.124 Mobile Safari/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'idfa': '6160fb46-9862-4d44-95b9-b1911283231f',
+            'Accept': 'application/json, text/plain, */*',
+            'version': '1.1',
+            'Origin': 'http://www.woodrowpoe.top',
+            'X-Requested-With': 'woodrowpoe.tik.realfans',
+            'Referer': 'http://www.woodrowpoe.top//',
+            'Accept-Language': 'ar-IQ,ar;q=0.9,en-IQ;q=0.8,en-US;q=0.7,en;q=0.6',
+        }
+        data = {
+            'username': user,
+        }
+        ress = requests.post('http://www.woodrowpoe.top/api/v1/tikTokGetUserProfileInfo', headers=headers, data=data).json()
+        iiid = ress['data']['pk']
+        bot.send_message(message.chat.id, f"<strong>Đã trích xuất ID người dùng thành công ✅\n📜 ID: {iiid}</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    except:
+        bot.send_message(message.chat.id, f"<strong>Username không đúng, vui lòng kiểm tra lại và thử lại</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        return
+    
+    add = int(sufi)
+    bot.send_message(message.chat.id, f"<strong>Đang gửi báo cáo, vui lòng chờ...</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    for i in range(add):
+        addd += 1
+        cookies = {
+            'odin_tt': '40c40ad4772022e96afc8c9e5ce6440a94936ed1bd537e7879ee88784cfe22fca0848fe32c54174d839784124b12b8c27d20352b659177c2f833576358d3c1579c239bd3c573702ec998bbcd2e1e8878',
+            'msToken': 'bLTHideWB0A4rwUNbFuXaOfox-RaP8ujtCAUIdbT1lJqD_DuKQuyzr5eHQFRAWkQWMDDyvD-oY-wo6_PFSeezMuMJQGew8fZWy2TT4lG2fSH0EthAUtiOltD2A==',
+        }
+        headers = {
+            'Host': 'api16-normal-c-alisg.tiktokv.com',
+            'x-ss-req-ticket': '1719662188204',
+            'x-tt-token': '034151afef2522b5e1c2add1168b0ca8db05a23b3056f1eed37d978de66524ba11681c8643b9fc579bc98e660ed51b1e4582cb1559e6188d3cf61df9d0e0aa45a337d96e167c5f6d764bd9f526fb9d46bf27572ff8fe1dc7e38b1aaeaec2f1340cac6-CkAyOGZkZjliNzgzNDQ5ZDVmMWE0Mzk5MTczZGZkYzg2NjdjOTU1MzMwMzI4ZDgyMmMxMjdhZjFlYjM5OThiNzQ4-2.0.0',
+            'sdk-version': '1',
+            'x-ss-dp': '1233',
+            'x-tt-trace-id': '00-63da984e1062c1cf916902c605b504d1-63da984e1062c1cf-01',
+            'user-agent': 'com.zhiliaoapp.musically/2021306050 (Linux; U; Android 13; ar; ANY-LX2; Build/HONORANY-L22CQ; Cronet/TTNetVersion:57844a4b 2019-10-16)',
+            'x-khronos': '1719662188',
+            'x-gorgon': '0300c0d00400ba7b3b32b5cf363902ab51deeb776fbf3dc359a1',
+        }
+        re = requests.get(
+            f'https://api16-normal-c-alisg.tiktokv.com/aweme/v2/aweme/feedback/?object_id={iiid}&owner_id={iiid}&report_type=user&locale=ar&locale=ar&isFirst=1&report_desc=&uri=&reason=90115&category=&request_tag_from=h5&manifest_version_code=2021306050&_rticket=1719662188204&current_region=IQ&app_language=ar&app_type=normal&iid=7385890279574865669&channel=googleplay&device_type=ANY-LX2&language=ar&resolution=1080*2298&openudid=39e9b96bb5c6e336&update_version_code=2021306050&ac2=wifi&sys_region=IQ&os_api=33&uoo=0&is_my_cn=0&timezone_name=Asia%2FBaghdad&dpi=480&residence=IQ&carrier_region=IQ&ac=wifi&device_id=7116197109661091333&pass-route=1&mcc_mnc=41805&os_version=13&timezone_offset=10800&version_code=130605&carrier_region_v2=418&app_name=musical_ly&ab_version=13.6.5&version_name=13.6.5&device_brand=HONOR&ssmix=a&pass-region=1&device_platform=android&build_number=13.6.5&region=ar&aid=1233&ts=1719662188',
+            cookies=cookies,
+            headers=headers,
+        ).text
+        if "status_message" in re or "status_code" in re or "extra" in re:
+            bot.send_message(message.chat.id, f"<strong>Đã gửi báo cáo số {addd} thành công ✅</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        else:
+            bot.send_message(message.chat.id, f"<strong>Gửi báo cáo số {addd} thất bại ❌</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        
+        if int(addd) == int(add):
+            bot.send_message(message.chat.id, f"<strong>Đã hoàn thành số báo cáo yêu cầu thành công ✅</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
 
-if __name__ == "__main__":
-    main()
+def z4(message):
+    try:
+        sufi = int(message.text)
+    except:
+        key = types.InlineKeyboardMarkup()
+        bot.send_message(message.chat.id, f"<strong>Bạn đã nhập giá trị sai…</strong>", parse_mode="html", reply_markup=key)
+        return
+    mw = bot.send_message(message.chat.id, 'Gửi username cần báo cáo:')
+    bot.register_next_step_handler(mw, asssss, sufi)
+
+def asssss(message, sufi):
+    addd = 0
+    b = message.chat.id
+    user = message.text
+    try:
+        headers = {
+            'Host': 'www.woodrowpoe.top',
+            'Connection': 'keep-alive',
+            'package': 'woodrowpoe.tik.realfans',
+            'apptype': 'android',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; ANY-LX2 Build/HONORANY-L22CQ; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.124 Mobile Safari/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'idfa': '6160fb46-9862-4d44-95b9-b1911283231f',
+            'Accept': 'application/json, text/plain, */*',
+            'version': '1.1',
+            'Origin': 'http://www.woodrowpoe.top',
+            'X-Requested-With': 'woodrowpoe.tik.realfans',
+            'Referer': 'http://www.woodrowpoe.top//',
+            'Accept-Language': 'ar-IQ,ar;q=0.9,en-IQ;q=0.8,en-US;q=0.7,en;q=0.6',
+        }
+        data = {
+            'username': user,
+        }
+        ress = requests.post('http://www.woodrowpoe.top/api/v1/tikTokGetUserProfileInfo', headers=headers, data=data).json()
+        iiid = ress['data']['pk']
+        bot.send_message(message.chat.id, f"<strong>Đã trích xuất ID người dùng thành công ✅\n📜 ID: {iiid}</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    except:
+        bot.send_message(message.chat.id, f"<strong>Username không đúng, vui lòng kiểm tra lại và thử lại</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        return
+    
+    add = int(sufi)
+    bot.send_message(message.chat.id, f"<strong>Đang gửi báo cáo, vui lòng chờ...</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    for i in range(add):
+        addd += 1
+        cookies = {
+            'odin_tt': '40c40ad4772022e96afc8c9e5ce6440a94936ed1bd537e7879ee88784cfe22fca0848fe32c54174d839784124b12b8c27d20352b659177c2f833576358d3c1579c239bd3c573702ec998bbcd2e1e8878',
+            'msToken': 'JmSfyyPDgNCuw6yh5eBpq0_o7K_hHBSsamNWylgt4n2jvZ2BPETkS1v6q4SDcrlhDwCu4zL1UhMXnn51bRTIZu0wWBFD85ciRMHH8XRQMULwkaN19UonoS6S3A==',
+        }
+        headers = {
+            'Host': 'api16-normal-c-alisg.tiktokv.com',
+            'x-ss-req-ticket': '1719662290959',
+            'x-tt-token': '034151afef2522b5e1c2add1168b0ca8db05a23b3056f1eed37d978de66524ba11681c8643b9fc579bc98e660ed51b1e4582cb1559e6188d3cf61df9d0e0aa45a337d96e167c5f6d764bd9f526fb9d46bf27572ff8fe1dc7e38b1aaeaec2f1340cac6-CkAyOGZkZjliNzgzNDQ5ZDVmMWE0Mzk5MTczZGZkYzg2NjdjOTU1MzMwMzI4ZDgyMmMxMjdhZjFlYjM5OThiNzQ4-2.0.0',
+            'sdk-version': '1',
+            'x-ss-dp': '1233',
+            'x-tt-trace-id': '00-63dc29ad1062c1cf916902c6059104d1-63dc29ad1062c1cf-01',
+            'user-agent': 'com.zhiliaoapp.musically/2021306050 (Linux; U; Android 13; ar; ANY-LX2; Build/HONORANY-L22CQ; Cronet/TTNetVersion:57844a4b 2019-10-16)',
+            'x-khronos': '1719662290',
+            'x-gorgon': '0300300704005d745c06cb07cb8311468b85cc99c94d91f97ff8',
+        }
+        re = requests.get(
+            f'https://api16-normal-c-alisg.tiktokv.com/aweme/v2/aweme/feedback/?object_id={iiid}&owner_id={iiid}&report_type=user&locale=ar&locale=ar&isFirst=1&report_desc=&uri=&reason=9004&category=&request_tag_from=h5&manifest_version_code=2021306050&_rticket=1719662290960&current_region=IQ&app_language=ar&app_type=normal&iid=7385890279574865669&channel=googleplay&device_type=ANY-LX2&language=ar&resolution=1080*2298&openudid=39e9b96bb5c6e336&update_version_code=2021306050&ac2=wifi&sys_region=IQ&os_api=33&uoo=0&is_my_cn=0&timezone_name=Asia%2FBaghdad&dpi=480&residence=IQ&carrier_region=IQ&ac=wifi&device_id=7116197109661091333&pass-route=1&mcc_mnc=41805&os_version=13&timezone_offset=10800&version_code=130605&carrier_region_v2=418&app_name=musical_ly&ab_version=13.6.5&version_name=13.6.5&device_brand=HONOR&ssmix=a&pass-region=1&device_platform=android&build_number=13.6.5&region=ar&aid=1233&ts=1719662291',
+            cookies=cookies,
+            headers=headers,
+        ).text
+        if "status_message" in re or "status_code" in re or "extra" in re:
+            bot.send_message(message.chat.id, f"<strong>Đã gửi báo cáo số {addd} thành công ✅</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        else:
+            bot.send_message(message.chat.id, f"<strong>Gửi báo cáo số {addd} thất bại ❌</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+        
+        if int(addd) == int(add):
+            bot.send_message(message.chat.id, f"<strong>Đã hoàn thành số báo cáo yêu cầu thành công ✅</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+
+bot.polling(none_stop=True)
