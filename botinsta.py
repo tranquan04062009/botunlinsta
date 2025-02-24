@@ -90,26 +90,34 @@ def ass(message, sufi):
             'Connection': 'keep-alive',
             'package': 'woodrowpoe.tik.realfans',
             'apptype': 'android',
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; ANY-LX2 Build/HONORANY-L22CQ; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.124 Mobile Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G981B Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.179 Mobile Safari/537.36',  # Cập nhật User-Agent mới hơn
             'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-            'idfa': '6160fb46-9862-4d44-95b9-b1911283231f',
+            'idfa': str(uuid4()),  # Tạo ID ngẫu nhiên thay vì cố định
             'Accept': 'application/json, text/plain, */*',
             'version': '1.1',
             'Origin': 'http://www.woodrowpoe.top',
             'X-Requested-With': 'woodrowpoe.tik.realfans',
             'Referer': 'http://www.woodrowpoe.top//',
-            'Accept-Language': 'ar-IQ,ar;q=0.9,en-IQ;q=0.8,en-US;q=0.7,en;q=0.6',
+            'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',  # Thay đổi ngôn ngữ sang tiếng Việt
         }
         data = {
             'username': user,
         }
-        ress = requests.post('http://www.woodrowpoe.top/api/v1/tikTokGetUserProfileInfo', headers=headers, data=data).json()
-        iiid = ress['data']['pk']
+        ress = requests.post('http://www.woodrowpoe.top/api/v1/tikTokGetUserProfileInfo', headers=headers, data=data)
+        ress_json = ress.json()
+        
+        # Kiểm tra nếu API trả về lỗi hoặc không có ID
+        if 'data' not in ress_json or 'pk' not in ress_json['data']:
+            bot.send_message(message.chat.id, f"<strong>Lỗi: API không trả về ID cho username '{user}'. Kiểm tra lại username hoặc API.</strong>", parse_mode="html")
+            return
+        
+        iiid = ress_json['data']['pk']
         bot.send_message(message.chat.id, f"<strong>Đã trích xuất ID người dùng thành công ✅\n📜 ID: {iiid}</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
-    except:
-        bot.send_message(message.chat.id, f"<strong>Username không đúng, vui lòng kiểm tra lại và thử lại</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
+    except Exception as e:
+        bot.send_message(message.chat.id, f"<strong>Lỗi: Không thể trích xuất ID của '{user}'. Chi tiết lỗi: {str(e)}</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
         return
     
+    # Tiếp tục xử lý báo cáo như cũ
     add = int(sufi)
     bot.send_message(message.chat.id, f"<strong>Đang gửi báo cáo, vui lòng chờ...</strong>", parse_mode="html", reply_markup=types.InlineKeyboardMarkup())
     for i in range(add):
