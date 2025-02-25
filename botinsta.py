@@ -22,7 +22,7 @@ logging.basicConfig(
 )
 
 # Token Telegram từ BotFather
-TOKEN = "YOUR_BOT_TOKEN_HERE"  # Thay bằng token của bạn
+TOKEN = "7834807188:AAFtO6u6mJ-1EaDm4W4qA_cb4KgICqSo734"  # Thay bằng token của bạn
 
 # Khởi tạo bot
 bot = telebot.TeleBot(TOKEN)
