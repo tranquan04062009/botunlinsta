@@ -22,7 +22,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN_HERE"
+TOKEN = "7834807188:AAFtO6u6mJ-1EaDm4W4qA_cb4KgICqSo734"
 
 bot = telebot.TeleBot(TOKEN)
 
