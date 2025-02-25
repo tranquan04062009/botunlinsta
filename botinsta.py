@@ -142,7 +142,7 @@ bot_config = BotConfig()
 bot_config.load_config()
 
 # Hàm khởi động bot
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['startbottx'])
 def send_welcome(message):
     user = message.from_user.first_name
     response = (
@@ -176,18 +176,18 @@ def add_result(message):
         if not validate_input(args):
             bot.reply_to(message, "Chuỗi không hợp lệ! Chỉ dùng 't' (Tài) hoặc 'x' (Xỉu).")
             return
-        
+
         sequence = parse_sequence(args)
         for result in sequence:
             bot_data.history.append(result)
             update_markov_matrix(result)
             update_fibonacci_cache(result)
-        
+
         added_str = "".join(["Tài" if x == 1 else "Xỉu" for x in sequence])
         bot.reply_to(message, f"Đã thêm: {added_str} ✅")
         logging.info(f"Đã thêm chuỗi: {added_str}")
         bot_data.save_data()
-    
+
     except IndexError:
         bot.reply_to(message, "Vui lòng nhập chuỗi sau /add! Ví dụ: /add txtxtttx")
     except Exception as e:
@@ -236,7 +236,7 @@ def analyze_patterns(history, lengths):
     try:
         pattern_score = 0
         last_results = list(history)
-        
+
         for length in lengths:
             if len(last_results) >= length:
                 last_n = last_results[-length:]
@@ -349,7 +349,7 @@ def analyze_bridge(history):
     try:
         if len(history) < 10:
             return "Chưa đủ dữ liệu để phân tích cầu!"
-        
+
         tai_ratio = sum(1 for x in history if x == 1) / len(history)
         max_tai_streak = max_xiu_streak = current_streak = 0
         current_value = None
@@ -363,10 +363,10 @@ def analyze_bridge(history):
                     max_xiu_streak = max(max_xiu_streak, current_streak)
                 current_streak = 1
                 current_value = result
-        
+
         flips = sum(1 for i in range(len(history) - 1) if history[i] != history[i+1])
         flip_rate = flips / (len(history) - 1)
-        
+
         return (
             f"Phân tích cầu:\n"
             f"- Tỷ lệ Tài: {tai_ratio:.2%}\n"
@@ -385,7 +385,7 @@ def predict(message):
         if len(bot_data.history) < bot_config.min_history_length:
             bot.reply_to(message, f"Vui lòng thêm ít nhất {bot_config.min_history_length} kết quả!")
             return
-        
+
         markov_tai, markov_xiu = markov_probability(bot_data.history)
         pattern_score = analyze_patterns(bot_data.history, bot_config.pattern_lengths)
         adjust_weights()
@@ -395,7 +395,7 @@ def predict(message):
         boost_prob = gradient_boost_predict(bot_data.history)
         entropy = calculate_entropy(list(bot_data.history)[-20:])
         confidence_adjust = max(0.6, 1 - (entropy / bot_config.entropy_threshold))
-        
+
         final_score = (
             markov_tai * 0.25 +
             tai_prob * 0.25 +
@@ -404,14 +404,14 @@ def predict(message):
             boost_prob * 0.10 +
             pattern_score * 0.05
         ) - 0.5
-        
+
         prediction = 1 if final_score > 0 else 0
         confidence = min(bot_config.max_confidence, abs(final_score) * 2.5 * confidence_adjust)
-        
+
         pred_str = "Tài" if prediction == 1 else "Xỉu"
         if abs(pattern_score) >= 0.5:
             pred_str += " (dựa trên mẫu chuỗi)"
-        
+
         response = (
             f"Dự đoán: {pred_str}\n"
             f"Độ tin cậy: {confidence:.2%}\n"
@@ -420,7 +420,7 @@ def predict(message):
         )
         bot.reply_to(message, response)
         logging.info(f"Dự đoán: {pred_str}, Độ tin cậy: {confidence:.2%}")
-        
+
         bot_data.total_predictions += 1
         bot_data.prediction_history.append((prediction, None))
     except Exception as e:
@@ -436,7 +436,7 @@ def handle_feedback(message):
         if args not in ["t", "x"]:
             bot.reply_to(message, "Phản hồi không hợp lệ! Dùng 't' (Tài) hoặc 'x' (Xỉu).")
             return
-        
+
         actual = 1 if args == "t" else 0
         if bot_data.prediction_history:
             last_pred, _ = bot_data.prediction_history.pop()
@@ -514,10 +514,11 @@ def analyze_bridge_handler(message):
         bot.reply_to(message, "Lỗi khi phân tích cầu!")
 
 # Hàm xử lý tin nhắn không hợp lệ
-@bot.message_handler(func=lambda message: True)
-def unknown(message):
-    bot.reply_to(message, "Lệnh không hợp lệ! Dùng /start để xem hướng dẫn.")
-    logging.warning(f"Tin nhắn không hợp lệ từ {message.from_user.id}: {message.text}")
+# Removed to prevent bot from replying to non-command messages.
+# @bot.message_handler(func=lambda message: True)
+# def unknown(message):
+#     bot.reply_to(message, "Lệnh không hợp lệ! Dùng /start để xem hướng dẫn.")
+#     logging.warning(f"Tin nhắn không hợp lệ từ {message.from_user.id}: {message.text}")
 
 # Hàm tối ưu hóa bộ nhớ
 def memory_optimization():
@@ -657,7 +658,7 @@ def ultimate_predict(history):
         period_pred, period_conf = periodicity_predict(history)
         if period_pred is not None:
             predictions.append((period_pred, 1 - period_pred))
-        
+
         avg_tai = sum(p[0] for p in predictions) / len(predictions)
         return 1 if avg_tai > 0.5 else 0, min(0.98, abs(avg_tai - 0.5) * 2 + 0.6)
     except Exception as e:
@@ -668,10 +669,10 @@ def ultimate_predict(history):
 if __name__ == "__main__":
     print("Bot đang chạy...")
     logging.info("Bot đã khởi động.")
-    
+
     bg_thread = threading.Thread(target=background_task, daemon=True)
     bg_thread.start()
-    
+
     try:
         bot.polling(none_stop=True)
     except Exception as e:
