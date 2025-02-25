@@ -1,3 +1,5 @@
 pyTelegramBotAPI
 numpy
 psutil
+tensorflow
+scikit-learn
