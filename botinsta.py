@@ -147,7 +147,7 @@ def send_welcome(message):
     user = message.from_user.first_name
     response = (
         f"Chào {user}!\n"
-        "Bot AI Tài/Xỉu tối ưu nhất 2025.\n"
+        "Bot AI Tài/Xỉu 2025.\n"
         "Dùng lệnh:\n"
         "/add <chuỗi> - Thêm chuỗi (t = Tài, x = Xỉu, ví dụ: /add txtxtttx)\n"
         "/predict - Dự đoán kết quả\n"
