@@ -1,5 +1,3 @@
---- START OF FILE bot tài xỉu.py ---
-
 import telebot
 import time
 import math
